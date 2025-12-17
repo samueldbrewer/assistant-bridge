@@ -70,7 +70,7 @@ app.post("/chat", async (req, res) => {
 async function waitForRunCompletion(threadId, runId) {
   // Poll the run until it completes or fails.
   while (true) {
-    const run = await client.beta.threads.runs.retrieve(threadId, runId);
+    const run = await client.beta.threads.runs.retrieve(runId, { thread_id: threadId });
     if (run.status === "completed") return;
     if (["failed", "expired", "cancelled"].includes(run.status)) {
       throw new Error(`Run ${run.status}`);
