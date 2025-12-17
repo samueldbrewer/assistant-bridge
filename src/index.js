@@ -47,8 +47,6 @@ app.post("/chat", async (req, res) => {
       assistant_id: assistantId,
     });
 
-    console.log("Started run", { threadId: thread.id, runId: run.id });
-
     await waitForRunCompletion(thread.id, run.id);
 
     const messages = await client.beta.threads.messages.list(thread.id, { limit: 20 });
