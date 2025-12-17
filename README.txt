@@ -8,6 +8,7 @@ Overview
   - Returns: { threadId, messages: [ { id, role, created_at, content } ... ] }
 - Health check: GET /health
 - Conversation state stored in-memory; a restart clears threads.
+- To change the system prompt, set SYSTEM_PROMPT in env/Railway and restart; it applies to new threads.
 
 Quick Start (local)
 1) Install deps: npm install

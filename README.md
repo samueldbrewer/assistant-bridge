@@ -53,4 +53,5 @@ curl -X POST http://localhost:3000/chat \
 ## Notes
 
 - Uses the Responses API (no Assistants objects). Conversation history is stored in-memory; a restart will clear threads.
+- To change the system prompt, set `SYSTEM_PROMPT` in your environment (or Railway variables) and restart/redeploy. The prompt is only injected for new threads.
 - Health check: `GET /health` returns `{ "ok": true }`.
