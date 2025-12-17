@@ -1,18 +1,20 @@
-Assistant Bridge (Railway)
-==========================
+Assistant Bridge (Responses API)
+================================
 
 Overview
-- Simple Express service that forwards chat requests to a single OpenAI Assistant.
+- Simple Express service that forwards chat requests to the OpenAI Responses API.
 - Endpoint: POST /chat
   - Body: JSON { "message": "your text", "threadId": "optional-thread-id" }
   - Returns: { threadId, messages: [ { id, role, created_at, content } ... ] }
 - Health check: GET /health
+- Conversation state stored in-memory; a restart clears threads.
 
 Quick Start (local)
 1) Install deps: npm install
 2) Copy .env.example -> .env and set:
    OPENAI_API_KEY=<your key>
-   ASSISTANT_ID=<assistant id>
+   MODEL=gpt-4.1-mini (or your preferred model)
+   SYSTEM_PROMPT=You are a concise CLI helper. (optional)
    PORT=3000
 3) Run: npm start
 4) Test:
@@ -29,9 +31,5 @@ Continue a thread
 Railway Deployment (already set up)
 - Project: assistant-bridge
 - Domain: https://assistant-bridge-production.up.railway.app
-- Env vars set: OPENAI_API_KEY, ASSISTANT_ID, PORT
+- Env vars set: OPENAI_API_KEY, MODEL, PORT
 - Redeploy after changes: railway up
-
-Assistant
-- Sample assistant definition: assistant.json
-- If you create a new one: `openai assistants create -f assistant.json` and update ASSISTANT_ID.

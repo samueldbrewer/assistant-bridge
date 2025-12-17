@@ -1,6 +1,6 @@
-# Assistant Bridge Service
+# Assistant Bridge Service (Responses API)
 
-Minimal Express service that forwards CLI-friendly chat requests to a single OpenAI Assistant thread. Send a message (and optionally an existing thread id) and it returns the ordered thread messages.
+Minimal Express service that forwards CLI-friendly chat requests to the OpenAI Responses API. You send a message (and optionally an existing thread id) and it returns the ordered chat messages kept in-memory.
 
 ## Setup
 
@@ -10,7 +10,8 @@ Minimal Express service that forwards CLI-friendly chat requests to a single Ope
    ```
 2. Configure environment:
    - Copy `.env.example` to `.env`
-   - Set `OPENAI_API_KEY` (do **not** commit this) and `ASSISTANT_ID` for the assistant you want to use.
+   - Set `OPENAI_API_KEY` (do **not** commit this).
+   - Optional: override `MODEL` (default `gpt-4.1-mini`) and `SYSTEM_PROMPT`.
 3. Start locally:
    ```bash
    npm start
@@ -42,7 +43,7 @@ curl -X POST http://localhost:3000/chat \
   -d '{"message":"Hello from CLI"}'
 ```
 
-Use the returned `threadId` on the next request to continue the same conversation:
+Use the returned `threadId` on the next request to continue the same conversation (state is kept in-memory per service instance):
 ```bash
 curl -X POST http://localhost:3000/chat \
   -H "Content-Type: application/json" \
@@ -51,9 +52,5 @@ curl -X POST http://localhost:3000/chat \
 
 ## Notes
 
-- The service expects a pre-created assistant (set `ASSISTANT_ID`). To create one with the OpenAI CLI:
-  ```bash
-  openai assistants create -f assistant.json
-  ```
-  A sample `assistant.json` is included; keep the resulting `id` and set it as `ASSISTANT_ID`.
+- Uses the Responses API (no Assistants objects). Conversation history is stored in-memory; a restart will clear threads.
 - Health check: `GET /health` returns `{ "ok": true }`.

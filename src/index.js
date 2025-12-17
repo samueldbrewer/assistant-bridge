@@ -1,6 +1,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const { OpenAI } = require("openai");
+const { randomUUID } = require("crypto");
 
 dotenv.config();
 
@@ -9,17 +10,17 @@ app.use(express.json());
 
 const port = process.env.PORT || 3000;
 const apiKey = process.env.OPENAI_API_KEY;
-const assistantId = process.env.ASSISTANT_ID;
+const model = process.env.MODEL || "gpt-4.1-mini";
+const systemPrompt = process.env.SYSTEM_PROMPT;
 
 if (!apiKey) {
   throw new Error("OPENAI_API_KEY is not set. Add it to your environment or .env file.");
 }
 
-if (!assistantId) {
-  throw new Error("ASSISTANT_ID is not set. Create an assistant and export ASSISTANT_ID.");
-}
-
 const client = new OpenAI({ apiKey });
+
+// Simple in-memory store for conversations keyed by threadId.
+const threads = new Map();
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
@@ -33,33 +34,33 @@ app.post("/chat", async (req, res) => {
   }
 
   try {
-    // Create or reuse a thread so we maintain conversation context.
-    const thread = threadId
-      ? { id: threadId }
-      : await client.beta.threads.create();
+    const now = Math.floor(Date.now() / 1000);
+    const id = threadId || randomUUID();
+    const history = threads.get(id) || [];
 
-    await client.beta.threads.messages.create(thread.id, {
-      role: "user",
-      content: message,
-    });
+    const input = buildInput(history, message);
+    const response = await client.responses.create({ model, input });
+    const assistantText = extractResponseText(response);
 
-    const run = await client.beta.threads.runs.create(thread.id, {
-      assistant_id: assistantId,
-    });
+    const updated = [
+      ...history,
+      { id: `user_${randomUUID()}`, role: "user", created_at: now, content: message },
+    ];
 
-    await waitForRunCompletion(thread.id, run.id);
+    if (assistantText) {
+      updated.push({
+        id: `asst_${randomUUID()}`,
+        role: "assistant",
+        created_at: Math.floor(Date.now() / 1000),
+        content: assistantText,
+      });
+    }
 
-    const messages = await client.beta.threads.messages.list(thread.id, { limit: 20 });
-    const orderedMessages = [...messages.data].reverse();
+    threads.set(id, updated);
 
     res.json({
-      threadId: thread.id,
-      messages: orderedMessages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        created_at: m.created_at,
-        content: extractText(m),
-      })),
+      threadId: id,
+      messages: updated,
     });
   } catch (err) {
     console.error(err);
@@ -67,27 +68,34 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-async function waitForRunCompletion(threadId, runId) {
-  // Poll the run until it completes or fails.
-  while (true) {
-    const run = await client.beta.threads.runs.retrieve(runId, { thread_id: threadId });
-    if (run.status === "completed") return;
-    if (["failed", "expired", "cancelled"].includes(run.status)) {
-      throw new Error(`Run ${run.status}`);
-    }
+function buildInput(history, nextUserMessage) {
+  const input = [];
 
-    // simple backoff; short sleep to avoid hammering API
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  if (!history.length && systemPrompt) {
+    input.push({ role: "system", content: systemPrompt });
   }
+
+  for (const msg of history) {
+    input.push({ role: msg.role, content: msg.content });
+  }
+
+  input.push({ role: "user", content: nextUserMessage });
+  return input;
 }
 
-function extractText(message) {
-  // Collapses text content blocks into a single string for ease of display.
-  return message.content
-    .filter((part) => part.type === "text")
-    .map((part) => part.text?.value ?? "")
-    .join("\n\n")
-    .trim();
+function extractResponseText(response) {
+  if (response.output_text) return response.output_text.trim();
+
+  const parts =
+    response.output
+      ?.flatMap((out) =>
+        out?.content
+          ?.filter((c) => c.type === "output_text")
+          .map((c) => c.text ?? "")
+      )
+      .filter(Boolean) || [];
+
+  return parts.join("\n\n").trim();
 }
 
 app.listen(port, () => {
