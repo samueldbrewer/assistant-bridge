@@ -10,7 +10,10 @@ app.use(express.json());
 
 const port = process.env.PORT || 3000;
 const apiKey = process.env.OPENAI_API_KEY;
-const model = process.env.MODEL || "gpt-4.1-mini";
+const model = process.env.MODEL || "gpt-5.2";
+const toolChoice = process.env.TOOL_CHOICE || "auto";
+const browsingEnabled = process.env.DISABLE_WEB_SEARCH !== "true";
+const includeWebSources = process.env.INCLUDE_WEB_SOURCES !== "false";
 const systemPrompt = process.env.SYSTEM_PROMPT;
 
 if (!apiKey) {
@@ -39,7 +42,13 @@ app.post("/chat", async (req, res) => {
     const history = threads.get(id) || [];
 
     const input = buildInput(history, message);
-    const response = await client.responses.create({ model, input });
+    const response = await client.responses.create({
+      model,
+      input,
+      tools: browsingEnabled ? [{ type: "web_search" }] : undefined,
+      tool_choice: browsingEnabled ? toolChoice : undefined,
+      include: browsingEnabled && includeWebSources ? ["web_search_call.action.sources"] : undefined,
+    });
     const assistantText = extractResponseText(response);
 
     const updated = [
